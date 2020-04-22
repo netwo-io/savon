@@ -1,0 +1,15 @@
+[package]
+name = "savon"
+version = "0.1.0"
+authors = ["Geoffroy Couprie <contact@geoffroycouprie.com>"]
+edition = "2018"
+description = "reserved"
+license = "MIT"
+repository = "https://github.com/Geal/savon"
+readme = "README.md"
+documentation = "https://docs.rs/savon"
+keywords = ["soap"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
