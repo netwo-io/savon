@@ -10,11 +10,9 @@ readme = "README.md"
 documentation = "https://docs.rs/savon"
 keywords = ["soap"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 xml-rs = "0.8"
 log = "0.4"
 reqwest = "0.9"
-xmltree = "0.8"
+xmltree = "0.10"
 chrono = "0.4"
