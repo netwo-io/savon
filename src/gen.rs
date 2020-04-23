@@ -140,7 +140,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 #[derive(Clone, Debug, Default)]
                 pub struct #mname(pub #iname);
             }
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     let service_name = Ident::new(&wsdl.name, Span::call_site());
 

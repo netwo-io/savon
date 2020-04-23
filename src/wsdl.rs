@@ -39,26 +39,26 @@ pub enum SimpleType {
 
 #[derive(Debug, Clone)]
 pub enum Occurence {
-  Unbounded,
-  Num(u32),
+    Unbounded,
+    Num(u32),
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TypeAttribute {
-  pub nillable: bool,
-  pub min_occurs: Option<Occurence>,
-  pub max_occurs: Option<Occurence>,
+    pub nillable: bool,
+    pub min_occurs: Option<Occurence>,
+    pub max_occurs: Option<Occurence>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ComplexType {
-  pub fields: HashMap<String, (TypeAttribute, SimpleType)>,
+    pub fields: HashMap<String, (TypeAttribute, SimpleType)>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Type {
-  Simple(SimpleType),
-  Complex(ComplexType),
+    Simple(SimpleType),
+    Complex(ComplexType),
 }
 
 #[derive(Debug, Clone)]
@@ -75,13 +75,12 @@ pub struct Operation {
     pub faults: Option<Vec<String>>,
 }
 
-
 //FIXME: splitting the namespace is the naive way, we should keep the namespace
 // and check for collisions instead
 fn split_namespace(s: &str) -> &str {
     match s.find(':') {
         None => s,
-        Some(index) => &s[index+1..],
+        Some(index) => &s[index + 1..],
     }
 }
 
@@ -94,17 +93,25 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     println!("elements: {:#?}", elements);
     println!("line: {}", line!());
 
-    let types_el = elements.get_child("types").ok_or(WsdlError::ElementNotFound("types"))?
-        .children.iter().filter_map(|c| c.as_element())
-        .next().ok_or(WsdlError::Empty)?;
+    let types_el = elements
+        .get_child("types")
+        .ok_or(WsdlError::ElementNotFound("types"))?
+        .children
+        .iter()
+        .filter_map(|c| c.as_element())
+        .next()
+        .ok_or(WsdlError::Empty)?;
     //println!("types: {:#?}", types_el);
     println!("line: {}", line!());
 
     for elem in types_el.children.iter().filter_map(|c| c.as_element()) {
         println!("type: {:#?}", elem);
-        let name = elem.attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
+        let name = elem
+            .attributes
+            .get("name")
+            .ok_or(WsdlError::AttributeNotFound("name"))?;
         //println!("name: {:?}", name);
-    println!("line: {}", line!());
+        println!("line: {}", line!());
 
         // sometimes we have <element name="TypeName"><complexType>...</complexType></element>,
         // sometimes we have <complexType name="TypeName">...</complexType>
@@ -114,49 +121,73 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         let child = if elem.name == "complexType" {
             elem
         } else {
-            elem.children.get(0).ok_or(WsdlError::Empty)?
-                .as_element().ok_or(WsdlError::NotAnElement)?
+            elem.children
+                .get(0)
+                .ok_or(WsdlError::Empty)?
+                .as_element()
+                .ok_or(WsdlError::NotAnElement)?
         };
 
         if child.name == "complexType" {
             println!("line: {}", line!());
             let mut fields = HashMap::new();
-            for field in child.children.get(0).ok_or(WsdlError::Empty)?
-                .as_element().ok_or(WsdlError::NotAnElement)?
-                    .children.iter().filter_map(|c| c.as_element()) {
-                        println!("line: {}", line!());
-                        let field_name = field.attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
-                        let field_type = field.attributes.get("type").ok_or(WsdlError::AttributeNotFound("type"))?;
-                        let nillable = match field.attributes.get("nillable").map(|s| s.as_str()) {
-                            Some("true") => true,
-                            Some("false") => false,
-                            _ => false,
-                        };
+            for field in child
+                .children
+                .get(0)
+                .ok_or(WsdlError::Empty)?
+                .as_element()
+                .ok_or(WsdlError::NotAnElement)?
+                .children
+                .iter()
+                .filter_map(|c| c.as_element())
+            {
+                println!("line: {}", line!());
+                let field_name = field
+                    .attributes
+                    .get("name")
+                    .ok_or(WsdlError::AttributeNotFound("name"))?;
+                let field_type = field
+                    .attributes
+                    .get("type")
+                    .ok_or(WsdlError::AttributeNotFound("type"))?;
+                let nillable = match field.attributes.get("nillable").map(|s| s.as_str()) {
+                    Some("true") => true,
+                    Some("false") => false,
+                    _ => false,
+                };
 
-                        let min_occurs = match field.attributes.get("minOccurs").map(|s| s.as_str()) {
-                            None => None,
-                            Some("unbounded") => Some(Occurence::Unbounded),
-                            Some(n) => Some(Occurence::Num(n.parse().expect("occurence should be a number"))),
-                        };
-                        let max_occurs = match field.attributes.get("maxOccurs").map(|s| s.as_str()) {
-                            None => None,
-                            Some("unbounded") => Some(Occurence::Unbounded),
-                            Some(n) => Some(Occurence::Num(n.parse().expect("occurence should be a number"))),
-                        };
-                        //println!("field {:?} -> {:?}", field_name, field_type);
-                        //
-                        let mut type_attributes = TypeAttribute { nillable, min_occurs, max_occurs };
+                let min_occurs = match field.attributes.get("minOccurs").map(|s| s.as_str()) {
+                    None => None,
+                    Some("unbounded") => Some(Occurence::Unbounded),
+                    Some(n) => Some(Occurence::Num(
+                        n.parse().expect("occurence should be a number"),
+                    )),
+                };
+                let max_occurs = match field.attributes.get("maxOccurs").map(|s| s.as_str()) {
+                    None => None,
+                    Some("unbounded") => Some(Occurence::Unbounded),
+                    Some(n) => Some(Occurence::Num(
+                        n.parse().expect("occurence should be a number"),
+                    )),
+                };
+                //println!("field {:?} -> {:?}", field_name, field_type);
+                //
+                let mut type_attributes = TypeAttribute {
+                    nillable,
+                    min_occurs,
+                    max_occurs,
+                };
 
-                        let simple_type = match split_namespace(field_type.as_str()) {
-                            "boolean" => SimpleType::Boolean,
-                            "string" => SimpleType::String,
-                            "int" => SimpleType::Int,
-                            "float" => SimpleType::Float,
-                            "dateTime" => SimpleType::DateTime,
-                            s => SimpleType::Complex(s.to_string()),
-                        };
-                        fields.insert(field_name.to_string(), (type_attributes, simple_type));
-                    }
+                let simple_type = match split_namespace(field_type.as_str()) {
+                    "boolean" => SimpleType::Boolean,
+                    "string" => SimpleType::String,
+                    "int" => SimpleType::Int,
+                    "float" => SimpleType::Float,
+                    "dateTime" => SimpleType::DateTime,
+                    s => SimpleType::Complex(s.to_string()),
+                };
+                fields.insert(field_name.to_string(), (type_attributes, simple_type));
+            }
 
             types.insert(name.to_string(), Type::Complex(ComplexType { fields }));
         } else {
@@ -178,7 +209,12 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
             .attributes
             .get("name")
             .ok_or(WsdlError::AttributeNotFound("name"))?;
-        let c = message.children.iter().filter_map(|c| c.as_element()).next().unwrap();
+        let c = message
+            .children
+            .iter()
+            .filter_map(|c| c.as_element())
+            .next()
+            .unwrap();
         println!("line: {}", line!());
         //FIXME: namespace
         let part_name = c
@@ -186,28 +222,45 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
             .get("name")
             .ok_or(WsdlError::AttributeNotFound("name"))?
             .to_string();
-        let part_element = split_namespace(c
-            .attributes
-            .get("element")
-            .ok_or(WsdlError::AttributeNotFound("element"))?)
-            .to_string();
+        let part_element = split_namespace(
+            c.attributes
+                .get("element")
+                .ok_or(WsdlError::AttributeNotFound("element"))?,
+        )
+        .to_string();
 
-        messages.insert(name.to_string(), Message { part_name, part_element });
+        messages.insert(
+            name.to_string(),
+            Message {
+                part_name,
+                part_element,
+            },
+        );
     }
 
     println!("line: {}", line!());
-    let port_type_el = elements.get_child("portType").ok_or(WsdlError::ElementNotFound("portType"))?;
+    let port_type_el = elements
+        .get_child("portType")
+        .ok_or(WsdlError::ElementNotFound("portType"))?;
 
     for operation in port_type_el.children.iter().filter_map(|c| c.as_element()) {
-    println!("line: {}", line!());
-        let operation_name = operation.attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
+        println!("line: {}", line!());
+        let operation_name = operation
+            .attributes
+            .get("name")
+            .ok_or(WsdlError::AttributeNotFound("name"))?;
 
         let mut input = None;
         let mut output = None;
         let mut faults = None;
         for child in operation.children.iter().filter_map(|c| c.as_element()) {
-    println!("line: {}", line!());
-            let message = split_namespace(child.attributes.get("message").ok_or(WsdlError::AttributeNotFound("message"))?);
+            println!("line: {}", line!());
+            let message = split_namespace(
+                child
+                    .attributes
+                    .get("message")
+                    .ok_or(WsdlError::AttributeNotFound("message"))?,
+            );
             // FIXME: not testing for unicity
             match child.name.as_str() {
                 "input" => input = Some(message.to_string()),
@@ -217,26 +270,32 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
                         faults = Some(Vec::new());
                     }
                     faults.as_mut().map(|v| v.push(message.to_string()));
-                },
+                }
                 _ => return Err(WsdlError::ElementNotFound("operation member")),
             }
         }
 
-        operations.insert(operation_name.to_string(), Operation {
-            name: operation_name.to_string(),
-            input,
-            output,
-            faults,
-        });
+        operations.insert(
+            operation_name.to_string(),
+            Operation {
+                name: operation_name.to_string(),
+                input,
+                output,
+                faults,
+            },
+        );
     }
 
     println!("line: {}", line!());
     //FIXME: ignoring bindings for now
     //FIXME: ignoring service for now
-    let service_name = elements.get_child("service").ok_or(WsdlError::ElementNotFound("service"))?
-        .attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
+    let service_name = elements
+        .get_child("service")
+        .ok_or(WsdlError::ElementNotFound("service"))?
+        .attributes
+        .get("name")
+        .ok_or(WsdlError::AttributeNotFound("name"))?;
     println!("line: {}", line!());
-
 
     println!("service name: {}", service_name);
     println!("parsed types: {:#?}", types);
