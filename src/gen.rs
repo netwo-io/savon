@@ -150,7 +150,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
         struct #service_name {
             base_url: String,
-            client: hyper::client::Client,
+            client: hyper::client::Client<hyper::client::HttpConnector, hyper::Body>,
         }
         #(#messages)*
 
