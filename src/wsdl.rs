@@ -1,7 +1,6 @@
 //! WSDL inspection helpers.
 
 use std::collections::HashMap;
-use xml::reader::{EventReader, XmlEvent};
 use xmltree::Element;
 
 #[derive(Debug)]
@@ -22,6 +21,7 @@ impl From<xmltree::ParseError> for WsdlError {
 /// WSDL document.
 #[derive(Debug)]
 pub struct Wsdl {
+    pub name: String,
     pub types: HashMap<String, Type>,
     pub messages: HashMap<String, Message>,
     pub operations: HashMap<String, Operation>,
@@ -230,7 +230,7 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     println!("parsed messages: {:#?}", messages);
     println!("parsed operations: {:#?}", operations);
 
-    Ok(Wsdl { types, messages, operations, })
+    Ok(Wsdl { name: service_name.to_string(), types, messages, operations, })
 }
 
 #[cfg(test)]
@@ -238,7 +238,6 @@ mod tests {
     use super::*;
     const WIKIPEDIA_WSDL: &[u8] = include_bytes!("../assets/wikipedia-example.wsdl");
     const EXAMPLE_WSDL: &[u8] = include_bytes!("../assets/example.wsdl");
-    use crate::wsdl::*;
 
     #[test]
     fn parse_example() {
