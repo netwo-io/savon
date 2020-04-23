@@ -5,11 +5,11 @@ use xmltree::Element;
 
 #[derive(Debug)]
 pub enum WsdlError {
-  Parse(xmltree::ParseError),
-  ElementNotFound(&'static str),
-  AttributeNotFound(&'static str),
-  NotAnElement,
-  Empty,
+    Parse(xmltree::ParseError),
+    ElementNotFound(&'static str),
+    AttributeNotFound(&'static str),
+    NotAnElement,
+    Empty,
 }
 
 impl From<xmltree::ParseError> for WsdlError {
@@ -63,8 +63,8 @@ pub enum Type {
 
 #[derive(Debug, Clone)]
 pub struct Message {
-  // FIXME: convert to type name
-  pub parts: HashMap<String, String>,
+    pub part_name: String,
+    pub part_element: String,
 }
 
 #[derive(Debug)]
@@ -166,20 +166,33 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     }
 
     println!("line: {}", line!());
-    for message in elements.children.iter().filter_map(|c| c.as_element()).filter(|c| c.name == "message") {
-    println!("line: {}", line!());
+    for message in elements
+        .children
+        .iter()
+        .filter_map(|c| c.as_element())
+        .filter(|c| c.name == "message")
+    {
+        println!("line: {}", line!());
         println!("message: {:#?}", message);
-        let name = message.attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
-        let mut parts = HashMap::new();
-        for c in message.children.iter().filter_map(|c| c.as_element()) {
-    println!("line: {}", line!());
-            let part_name = c.attributes.get("name").ok_or(WsdlError::AttributeNotFound("name"))?;
-            let part_element = c.attributes.get("element").ok_or(WsdlError::AttributeNotFound("element"))?;
-            //FIXME: namespace
-            parts.insert(part_name.to_string(), split_namespace(part_element).to_string());
-        }
+        let name = message
+            .attributes
+            .get("name")
+            .ok_or(WsdlError::AttributeNotFound("name"))?;
+        let c = message.children.iter().filter_map(|c| c.as_element()).next().unwrap();
+        println!("line: {}", line!());
+        //FIXME: namespace
+        let part_name = c
+            .attributes
+            .get("name")
+            .ok_or(WsdlError::AttributeNotFound("name"))?
+            .to_string();
+        let part_element = split_namespace(c
+            .attributes
+            .get("element")
+            .ok_or(WsdlError::AttributeNotFound("element"))?)
+            .to_string();
 
-        messages.insert(name.to_string(), Message { parts });
+        messages.insert(name.to_string(), Message { part_name, part_element });
     }
 
     println!("line: {}", line!());
@@ -230,7 +243,12 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     println!("parsed messages: {:#?}", messages);
     println!("parsed operations: {:#?}", operations);
 
-    Ok(Wsdl { name: service_name.to_string(), types, messages, operations, })
+    Ok(Wsdl {
+        name: service_name.to_string(),
+        types,
+        messages,
+        operations,
+    })
 }
 
 #[cfg(test)]

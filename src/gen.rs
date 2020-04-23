@@ -1,11 +1,8 @@
-use crate::wsdl::{parse, Wsdl};
-use quote::{ToTokens, TokenStreamExt};
-use proc_macro2::{Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use crate::wsdl::{parse, SimpleType, Type, Wsdl};
 use case::CaseExt;
-use std::{
-    fs::File,
-    io::Write,
-};
+use proc_macro2::{Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use quote::{ToTokens, TokenStreamExt};
+use std::{fs::File, io::Write};
 
 #[derive(Debug)]
 pub enum GenError {
@@ -94,13 +91,67 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
         }
     }).collect::<Vec<_>>();
 
+    let types = wsdl
+        .types
+        .iter()
+        .map(|(name, t)| {
+            if let Type::Complex(c) = t {
+                let type_name = Ident::new(&name, Span::call_site());
+
+                let fields = c
+                    .fields
+                    .iter()
+                    .map(|(field_name, (attributes, field_type))| {
+                        let fname = Ident::new(&field_name, Span::call_site());
+                        let ft = match field_type {
+                            SimpleType::Boolean => Ident::new("bool", Span::call_site()),
+                            SimpleType::String => Ident::new("String", Span::call_site()),
+                            SimpleType::Float => Ident::new("f64", Span::call_site()),
+                            SimpleType::Int => Ident::new("i64", Span::call_site()),
+                            SimpleType::DateTime => Ident::new("String", Span::call_site()),
+                            SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
+                        };
+                        quote! {
+                            pub #fname: #ft,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                quote! {
+                    #[derive(Clone, Debug, Default)]
+                    pub struct #type_name {
+                        #(#fields)*
+                    }
+                }
+            } else {
+                panic!();
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let messages = wsdl
+        .messages
+        .iter()
+        .map(|(message_name, message)| {
+            let mname = Ident::new(&message_name, Span::call_site());
+            let iname = Ident::new(&message.part_element, Span::call_site());
+
+            quote! {
+                #[derive(Clone, Debug, Default)]
+                pub struct #mname(pub #iname);
+            }
+        }).collect::<Vec<_>>();
+
     let service_name = Ident::new(&wsdl.name, Span::call_site());
 
-    let toks = quote!{
+    let toks = quote! {
+        #(#types)*
+
         struct #service_name {
             base_url: String,
             client: hyper::client::Client,
         }
+        #(#messages)*
 
         impl #service_name {
             pub fn new(base_url: String) -> Self {
@@ -111,27 +162,37 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             }
 
             #(#operations)*
-
         }
     };
 
-    let operation_faults = wsdl.operations.iter().filter(|(_, op)| op.faults.is_some()).map(|(name, operation)| {
-        let op_error = Ident::new(&format!("{}Error", name), Span::call_site());
+    let operation_faults = wsdl
+        .operations
+        .iter()
+        .filter(|(_, op)| op.faults.is_some())
+        .map(|(name, operation)| {
+            let op_error = Ident::new(&format!("{}Error", name), Span::call_site());
 
-        let faults = operation.faults.as_ref().unwrap().iter().map(|fault| {
-          let fault_name = Ident::new(&fault, Span::call_site());
+            let faults = operation
+                .faults
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|fault| {
+                    let fault_name = Ident::new(&fault, Span::call_site());
 
-          quote! {
-                #fault_name(#fault_name),
-          }
-        }).collect::<Vec<_>>();
+                    quote! {
+                          #fault_name(#fault_name),
+                    }
+                })
+                .collect::<Vec<_>>();
 
-        quote! {
-            enum #op_error {
-                #(#faults)*
+            quote! {
+                enum #op_error {
+                    #(#faults)*
+                }
             }
-        }
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     let mut stream: TokenStream = toks;
     stream.extend(operation_faults);
