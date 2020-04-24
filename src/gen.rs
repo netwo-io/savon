@@ -29,14 +29,14 @@ pub fn gen_write(path: &str, out: &str) -> Result<(), ()> {
 
 pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
     let operations = wsdl.operations.iter().map(|(name, operation)| {
-        let op_name = Ident::new(name, Span::call_site());
+        let op_name = Ident::new(&name.to_snake(), Span::call_site());
         let input_name = Ident::new(&operation.input.as_ref().unwrap().to_snake(), Span::call_site());
         let input_type = Ident::new(operation.input.as_ref().unwrap(), Span::call_site());
 
         match (operation.output.as_ref(), operation.faults.as_ref()) {
             (None, None) => {
                 quote! {
-                    async fn #op_name(&self, #input_name: #input_type) -> Result<(), savon::Error> {
+                    pub async fn #op_name(&self, #input_name: #input_type) -> Result<(), savon::Error> {
                         savon::http::one_way(&self.client, &self.base_url, &#input_name).await
                             }
                 }
@@ -46,7 +46,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 let out_name = Ident::new(&out, Span::call_site());
 
                 quote! {
-                    async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, ()>, savon::Error> {
+                    pub async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, ()>, savon::Error> {
                         savon::http::request_response(&self.client, &self.base_url, &#input_name).await
                     }
                 }
@@ -56,7 +56,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 let err_name = Ident::new(&format!("{}Error", name), Span::call_site());
 
                 quote! {
-                    async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, #err_name>, savon::Error> {
+                    pub async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, #err_name>, savon::Error> {
                         unimplemented!()
                         /*let req = hyper::http::request::Builder::new()
                             .method("POST")
@@ -137,9 +137,9 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
         #(#types)*
 
-        struct #service_name {
-            base_url: String,
-            client: reqwest::Client,
+        pub struct #service_name {
+            pub base_url: String,
+            pub client: reqwest::Client,
         }
         #(#messages)*
 
@@ -178,7 +178,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
             quote! {
                 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-                enum #op_error {
+                pub enum #op_error {
                     #(#faults)*
                 }
             }

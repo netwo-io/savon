@@ -253,7 +253,8 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         let mut input = None;
         let mut output = None;
         let mut faults = None;
-        for child in operation.children.iter().filter_map(|c| c.as_element()) {
+        for child in operation.children.iter().filter_map(|c| c.as_element())
+            .filter(|c| c.attributes.get("message").is_some()) {
             println!("line: {}", line!());
             let message = split_namespace(
                 child

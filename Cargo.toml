@@ -13,12 +13,14 @@ keywords = ["soap"]
 [dependencies]
 xml-rs = "0.8"
 log = "0.4"
-reqwest = "0.9"
 xmltree = "0.10"
 chrono = "0.4"
 quote = "1.0"
 proc-macro2 = "1.0"
 case = "^1.0"
+reqwest = "0.10"
+serde = "1.0"
+serde-xml-rs = "0.4"
 
 [workspace]
 members = [ "savon-derive", "savon-test" ]

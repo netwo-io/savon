@@ -9,7 +9,11 @@ build = "build.rs"
 
 [dependencies]
 savon = { path = ".."}
-hyper = "*"
+reqwest = "*"
+serde = { version = "*", features = ["derive"] }
+tokio = { version = "*", features = ["macros"] }
+log = "*"
+pretty_env_logger = "*"
 
 [build-dependencies]
 savon = { path = ".."}
