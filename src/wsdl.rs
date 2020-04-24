@@ -22,6 +22,7 @@ impl From<xmltree::ParseError> for WsdlError {
 #[derive(Debug)]
 pub struct Wsdl {
     pub name: String,
+    pub target_namespace: String,
     pub types: HashMap<String, Type>,
     pub messages: HashMap<String, Message>,
     pub operations: HashMap<String, Operation>,
@@ -92,6 +93,10 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     let elements = Element::parse(bytes)?;
     println!("elements: {:#?}", elements);
     println!("line: {}", line!());
+    let target_namespace = elements
+            .attributes
+            .get("targetNamespace")
+            .ok_or(WsdlError::AttributeNotFound("targetNamespace"))?.to_string();
 
     let types_el = elements
         .get_child("types")
@@ -305,6 +310,7 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
 
     Ok(Wsdl {
         name: service_name.to_string(),
+        target_namespace,
         types,
         messages,
         operations,
