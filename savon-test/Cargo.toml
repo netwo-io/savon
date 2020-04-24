@@ -14,6 +14,7 @@ serde = { version = "*", features = ["derive"] }
 tokio = { version = "*", features = ["macros"] }
 log = "*"
 pretty_env_logger = "*"
+xmltree = "*"
 
 [build-dependencies]
 savon = { path = ".."}

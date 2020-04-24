@@ -114,8 +114,8 @@ impl BuildElement for Element {
         Element {
             name: self.name.clone(),
             attributes: self.attributes.clone(),
-            children: self.children.iter().map(|child| child.cloned()).collect(),
-            text: self.text.clone(),
+            children: self.children.iter().map(|child| child.clone()).collect(),
+            //text: self.text.clone(),
             namespace: self.namespace.clone(),
             namespaces: self.namespaces.clone(),
             prefix: self.prefix.clone(),
@@ -130,7 +130,7 @@ impl BuildElement for Element {
             name: name.into(),
             attributes: HashMap::new(),
             children: Vec::new(),
-            text: None,
+            //text: None,
             namespace: None,
             namespaces: None,
             prefix: None,
@@ -149,7 +149,7 @@ impl BuildElement for Element {
     where
         S: Into<String>,
     {
-        self.text = Some(text.into());
+        self.children.push(xmltree::XMLNode::Text(text.into()));
         self
     }
 
@@ -163,7 +163,7 @@ impl BuildElement for Element {
     }
 
     fn with_child(mut self, child: Self) -> Self {
-        self.children.push(child);
+        self.children.push(xmltree::XMLNode::Element(child));
         self
     }
 
@@ -171,7 +171,7 @@ impl BuildElement for Element {
     where
         I: IntoIterator<Item = Self>,
     {
-        self.children.extend(children);
+        self.children.extend(children.into_iter().map(xmltree::XMLNode::Element));
         self
     }
 
@@ -180,7 +180,7 @@ impl BuildElement for Element {
         I: Iterator<Item = &'r Self>,
     {
         for child in children {
-            self.children.push(child.cloned());
+            self.children.push(xmltree::XMLNode::Element(child.cloned()));
         }
         self
     }
@@ -196,15 +196,16 @@ impl BuildElement for Element {
         if path.is_empty() {
             Ok(self)
         } else {
-            for child in self.children {
+            for child in self.children.iter().filter_map(|c| c.as_element()) {
                 if child.name == path[0] {
-                    return match child.descend(&path[1..]) {
-                        Ok(element) => Ok(element),
+                    return match child.clone().descend(&path[1..]) {
+                        Ok(element) => Ok(element.clone()),
                         Err(Error::NotFoundAtPath {
-                            path: mut error_path,
+                            path: error_path,
                         }) => {
-                            error_path.insert(0, path[0].into());
-                            Err(Error::NotFoundAtPath { path: error_path })
+                            let mut err = error_path.clone();
+                            err.insert(0, path[0].into());
+                            Err(Error::NotFoundAtPath { path: err })
                         }
                         _ => unreachable!("descend should only return NotFoundAtPath error"),
                     };
@@ -220,7 +221,7 @@ impl BuildElement for Element {
         if self.children.is_empty() {
             Err(Error::ExpectedNotEmpty { parent: self.name })
         } else {
-            Ok(self.children.remove(0))
+            Ok(self.children.remove(0).as_element().unwrap().clone())
         }
     }
 
@@ -228,7 +229,7 @@ impl BuildElement for Element {
         if path.is_empty() {
             Ok(self.cloned())
         } else {
-            for child in &self.children {
+            for child in self.children.iter().filter_map(|c| c.as_element()) {
                 if child.name == path[0] {
                     return match child.get_at_path(&path[1..]) {
                         Ok(element) => Ok(element),
@@ -249,7 +250,7 @@ impl BuildElement for Element {
     }
 
     fn as_int(&self) -> Result<i32, Error> {
-        let text = try!(get_typed_string(self, "int"));
+        let text = get_typed_string(self, "int")?;
         Ok(match text.parse() {
             Ok(ref value) => *value,
             Err(e) => {
@@ -262,7 +263,7 @@ impl BuildElement for Element {
     }
 
     fn as_long(&self) -> Result<i64, Error> {
-        let text = try!(get_typed_string(self, "long"));
+        let text = get_typed_string(self, "long")?;
         Ok(match text.parse() {
             Ok(ref value) => *value,
             Err(e) => {
@@ -279,7 +280,7 @@ impl BuildElement for Element {
     }
 
     fn as_datetime(&self) -> Result<DateTime<Utc>, Error> {
-        let text = try!(get_typed_string(self, "dateTime"));
+        let text = get_typed_string(self, "dateTime")?;
         Ok(match text.parse::<DateTime<Utc>>() {
             Ok(ref value) => *value,
             Err(e) => {
@@ -292,14 +293,14 @@ impl BuildElement for Element {
     }
 
     fn as_boolean(&self) -> Result<bool, Error> {
-        let text = try!(get_typed_string(self, "boolean"));
+        let text = get_typed_string(self, "boolean")?;
         Ok(text == "true")
     }
 }
 
 fn get_typed_string(element: &Element, value_type: &str) -> Result<String, Error> {
-    Ok(match (element.attributes.get("type"), &element.text) {
-        (Some(value), &Some(ref text)) if value.ends_with(value_type) => text.clone(),
+    Ok(match (element.attributes.get("type"), &element.get_text()) {
+        (Some(value), &Some(ref text)) if value.ends_with(value_type) => text.to_string(),
         (other_type, _) => {
             return Err(Error::ExpectedElementWithType {
                 name: element.name.clone(),

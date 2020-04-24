@@ -6,7 +6,7 @@ extern crate proc_macro2;
 extern crate quote;
 
 pub mod gen;
-//mod rpser;
+pub mod rpser;
 pub mod wsdl;
 pub mod http;
 mod error;

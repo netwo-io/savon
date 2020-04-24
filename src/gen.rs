@@ -4,6 +4,10 @@ use proc_macro2::{Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use quote::{ToTokens, TokenStreamExt};
 use std::{fs::File, io::Write};
 
+pub trait ToElement {
+    fn to_element(&self) -> xmltree::Element;
+}
+
 #[derive(Debug)]
 pub enum GenError {
     Io(std::io::Error),
@@ -33,12 +37,14 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
         let input_name = Ident::new(&operation.input.as_ref().unwrap().to_snake(), Span::call_site());
         let input_type = Ident::new(operation.input.as_ref().unwrap(), Span::call_site());
 
+        let op_str = Literal::string(&name);
+
         match (operation.output.as_ref(), operation.faults.as_ref()) {
             (None, None) => {
                 quote! {
                     pub async fn #op_name(&self, #input_name: #input_type) -> Result<(), savon::Error> {
-                        savon::http::one_way(&self.client, &self.base_url, &#input_name).await
-                            }
+                        savon::http::one_way(&self.client, &self.base_url, #op_str, &#input_name).await
+                    }
                 }
             },
             (None, Some(_)) => quote!{},
@@ -47,7 +53,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
                 quote! {
                     pub async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, ()>, savon::Error> {
-                        savon::http::request_response(&self.client, &self.base_url, &#input_name).await
+                        savon::http::request_response(&self.client, &self.base_url, #op_str, &#input_name).await
                     }
                 }
             },
@@ -89,7 +95,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                     .fields
                     .iter()
                     .map(|(field_name, (attributes, field_type))| {
-                        let fname = Ident::new(&field_name, Span::call_site());
+                        let fname = Ident::new(&field_name.to_snake(), Span::call_site());
                         let ft = match field_type {
                             SimpleType::Boolean => Ident::new("bool", Span::call_site()),
                             SimpleType::String => Ident::new("String", Span::call_site()),
@@ -104,11 +110,47 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                     })
                     .collect::<Vec<_>>();
 
+                let fields_impl = c
+                    .fields
+                    .iter()
+                    .map(|(field_name, (attributes, field_type))| {
+                        let fname = Ident::new(&field_name.to_snake(), Span::call_site());
+                        //FIXME: handle more complex types
+                        /*let ft = match field_type {
+                            SimpleType::Boolean => Ident::new("bool", Span::call_site()),
+                            SimpleType::String => Ident::new("String", Span::call_site()),
+                            SimpleType::Float => Ident::new("f64", Span::call_site()),
+                            SimpleType::Int => Ident::new("i64", Span::call_site()),
+                            SimpleType::DateTime => Ident::new("String", Span::call_site()),
+                            SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
+                        };*/
+                        let ftype = Literal::string(field_name);
+                        quote! {
+                            xmltree::Element::node(#ftype).with_text(format!("{:?}", self.#fname)),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let ns = Literal::string(&format!("ns:{}", name));
+                let serialize_impl = quote! {
+                    impl savon::gen::ToElement for #type_name {
+                        fn to_element(&self) -> xmltree::Element {
+                            //xmltree::Element::node("ns:#type_name")
+                            xmltree::Element::node(#ns)
+                                .with_children(vec![
+                                    #(#fields_impl)*
+                                ])
+                        }
+                    }
+                };
+
                 quote! {
                     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
                     pub struct #type_name {
                         #(#fields)*
                     }
+
+                    #serialize_impl
                 }
             } else {
                 panic!();
@@ -126,6 +168,12 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             quote! {
                 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
                 pub struct #mname(pub #iname);
+
+                impl savon::gen::ToElement for #mname {
+                    fn to_element(&self) -> xmltree::Element {
+                        self.0.to_element()
+                    }
+                }
             }
         })
         .collect::<Vec<_>>();
@@ -134,6 +182,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
     let toks = quote! {
         use serde::{Deserialize, Serialize};
+        use xmltree;
+        use savon::rpser::xml::*;
 
         #(#types)*
 
