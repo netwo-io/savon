@@ -44,17 +44,11 @@ pub async fn request_response<'a, Input: ToElements, Output: Debug + FromElement
         .send()
         .await?.text().await?;
 
-    println!("received: {}", response);
+    trace!("received: {}", response);
     let r = Response::from_xml(&response).unwrap();
-    println!("parsed: {:#?}", r);
-    println!("output: {:#?}", Output::from_element(&r.body));
-    let res: Result<Output, _> = from_str(&response);
+    trace!("parsed: {:#?}", r);
+    let o = Output::from_element(&r.body);
+    trace!("output: {:#?}", o);
 
-    match res {
-        Ok(o) => Ok(Ok(o)),
-        Err(e) => match from_str(&response) {
-            Err(e) => Err(e.into()),
-            Ok(e) => Ok(Err(e)),
-        }
-    }
+    o.map(|val| Ok(val))
 }
