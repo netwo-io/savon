@@ -3,6 +3,7 @@ use case::CaseExt;
 use proc_macro2::{Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use quote::{ToTokens, TokenStreamExt};
 use std::{fs::File, io::Write};
+use chrono::DateTime;
 
 pub trait ToElements {
     fn to_elements(&self) -> Vec<xmltree::Element>;
@@ -109,16 +110,26 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             SimpleType::String => Ident::new("String", Span::call_site()),
                             SimpleType::Float => Ident::new("f64", Span::call_site()),
                             SimpleType::Int => Ident::new("i64", Span::call_site()),
-                            SimpleType::DateTime => Ident::new("String", Span::call_site()),
+                            SimpleType::DateTime => Ident::new("chrono::DateTime", Span::call_site()),
                             SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
                         };
+
+                        let ft = match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
+                          (Some(_), Some(_)) => quote! { Vec<#ft> },
+                          _ => quote! { #ft }
+                        };
+                        let ft = match attributes.nillable {
+                          true => quote! { Option<#ft> },
+                          _ => ft
+                        };
+
                         quote! {
                             pub #fname: #ft,
                         }
                     })
                     .collect::<Vec<_>>();
 
-                let fields_deserialize_impl = c
+                let fields_serialize_impl = c
                     .fields
                     .iter()
                     .map(|(field_name, (attributes, field_type))| {
@@ -133,8 +144,14 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
                         };*/
                         let ftype = Literal::string(field_name);
+                        let prefix = quote! { xmltree::Element::node(#ftype) };
+                        let ser = match field_type {
+                            SimpleType::Complex(s) => quote!{unimplemented!()},
+                            _ => quote!{ self.#fname.to_string() },
+                        };
+
                         quote! {
-                            xmltree::Element::node(#ftype).with_text(format!("{:?}", self.#fname)),
+                            #prefix.with_text(#ser),
                         }
                     })
                     .collect::<Vec<_>>();
@@ -146,7 +163,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             //xmltree::Element::node(#ns)
                              //   .with_children(
                                     vec![
-                                    #(#fields_deserialize_impl)*
+                                    #(#fields_serialize_impl)*
                                 ]
                                 //)
                         }
@@ -164,14 +181,28 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                                              name, field_name, field_type));
 
                         let prefix = quote!{ #fname: element.get_at_path(&[#ftype]) };
-                        match field_type {
-                            SimpleType::Boolean => quote!{ #prefix.and_then(|e| e.as_boolean())?, },
-                            SimpleType::String => quote!{ #prefix.and_then(|e| e.as_string())?, },
-                            SimpleType::Float => quote!{ #prefix.and_then(|e| e.as_string())?.parse()? },
-                            SimpleType::Int => quote!{ #prefix.and_then(|e| e.as_long())?, },
-                            SimpleType::DateTime => quote!{ #fname: unimplemented!(#error), },
-                            SimpleType::Complex(s) => quote!{ #fname: unimplemented!(#error), },
-                        }
+
+                        let ft = match field_type {
+                            SimpleType::Boolean => quote!{ #prefix.and_then(|e| e.as_boolean()) },
+                            SimpleType::String => quote!{ #prefix.and_then(|e| e.as_string()) },
+                            SimpleType::Float => quote!{ #prefix.and_then(|e| e.as_string().map_err(savon::Error::from).and_then(|s| s.parse().map_err(savon::Error::from))) },
+                            SimpleType::Int => quote!{ #prefix.and_then(|e| e.as_long()) },
+                            SimpleType::DateTime => quote!{
+                                #fname: {
+                                    #prefix.and_then(|e| e.as_string()).map_err(savon::Error::from)
+                                      .and_then(|s| s.parse::<chrono::DateTime<chrono::offset::Utc>>().map_err(savon::Error::from))
+                                }
+                            },
+                            SimpleType::Complex(s) => quote!{ #fname: {unimplemented!(#error); Ok(())} },
+                        };
+
+                        let ft = if attributes.nillable {
+                          quote!{ #ft.ok(),}
+                        } else {
+                          quote!{ #ft?,}
+                        };
+
+                        ft
                     })
                     .collect::<Vec<_>>();
 

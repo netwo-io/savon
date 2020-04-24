@@ -15,6 +15,7 @@ tokio = { version = "*", features = ["macros"] }
 log = "*"
 pretty_env_logger = "*"
 xmltree = "*"
+chrono = "*"
 
 [build-dependencies]
 savon = { path = ".."}
