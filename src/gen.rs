@@ -14,6 +14,25 @@ pub trait FromElement {
         where Self: Sized;
 }
 
+impl<T: ToElements> ToElements for Option<T> {
+    fn to_elements(&self) -> Vec<xmltree::Element> {
+        match self {
+            Some(e) => e.to_elements(),
+            None => vec![],
+        }
+    }
+}
+
+/*impl<T: ToElements> for Vec<T> {
+    fn to_elements(&self) -> Vec<xmltree::Element> {
+
+        match self {
+            Some(e) => e.to_elements(),
+            None => vec![],
+        }
+    }
+}*/
+
 #[derive(Debug)]
 pub enum GenError {
     Io(std::io::Error),
@@ -145,27 +164,50 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         };*/
                         let ftype = Literal::string(field_name);
                         let prefix = quote! { xmltree::Element::node(#ftype) };
-                        let ser = match field_type {
-                            SimpleType::Complex(s) => quote!{unimplemented!()},
-                            _ => quote!{ self.#fname.to_string() },
-                        };
 
-                        quote! {
-                            #prefix.with_text(#ser),
-                        }
+                        let f = match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
+                          (Some(_), Some(_)) => if attributes.nillable {
+                              quote! {
+                                  self.#fname.as_ref().map(|v| v.iter().map(|i| {
+                                      #prefix.with_children(i.to_elements())
+                                  }).collect()).unwrap_or_else(Vec::new)
+                              }
+                          } else {
+                              quote! {
+                                  self.#fname.iter().map(|i| {
+                                      #prefix.with_children(i.to_elements())
+                                  }).collect()
+                              }
+                          },
+                          _ => {
+                              match field_type {
+                                  SimpleType::Complex(s) => quote!{ vec![#prefix.with_children(self.#fname.to_elements())]},
+                                  _ => quote!{ vec![#prefix.with_text(self.#fname.to_string())] },
+                              }
+
+                          }
+                        };
+                        f
                     })
                     .collect::<Vec<_>>();
 
                 let ns = Literal::string(&format!("ns:{}", name));
-                let serialize_impl = quote! {
-                    impl savon::gen::ToElements for #type_name {
-                        fn to_elements(&self) -> Vec<xmltree::Element> {
-                            //xmltree::Element::node(#ns)
-                             //   .with_children(
-                                    vec![
-                                    #(#fields_serialize_impl)*
-                                ]
-                                //)
+                let serialize_impl = if fields_serialize_impl.is_empty() {
+                    quote! {
+                        impl savon::gen::ToElements for #type_name {
+                            fn to_elements(&self) -> Vec<xmltree::Element> {
+                                vec![]
+                            }
+                        }
+                    }
+
+                }else {
+                    quote! {
+                        impl savon::gen::ToElements for #type_name {
+                            fn to_elements(&self) -> Vec<xmltree::Element> {
+                                vec![#(#fields_serialize_impl),*].drain(..).flatten().collect()
+                                //#(#fields_serialize_impl)*
+                            }
                         }
                     }
                 };
@@ -183,24 +225,89 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         let prefix = quote!{ #fname: element.get_at_path(&[#ftype]) };
 
                         let ft = match field_type {
-                            SimpleType::Boolean => quote!{ #prefix.and_then(|e| e.as_boolean()) },
-                            SimpleType::String => quote!{ #prefix.and_then(|e| e.as_string()) },
-                            SimpleType::Float => quote!{ #prefix.and_then(|e| e.as_string().map_err(savon::Error::from).and_then(|s| s.parse().map_err(savon::Error::from))) },
-                            SimpleType::Int => quote!{ #prefix.and_then(|e| e.as_long()) },
-                            SimpleType::DateTime => quote!{
-                                #fname: {
-                                    #prefix.and_then(|e| e.as_string()).map_err(savon::Error::from)
-                                      .and_then(|s| s.parse::<chrono::DateTime<chrono::offset::Utc>>().map_err(savon::Error::from))
+                            SimpleType::Boolean => {
+                                let ft = quote!{ #prefix.and_then(|e| e.as_boolean()) };
+                                if attributes.nillable {
+                                    quote!{ #ft.ok(),}
+                                } else {
+                                    quote!{ #ft?,}
                                 }
                             },
-                            SimpleType::Complex(s) => quote!{ #fname: {unimplemented!(#error); Ok(())} },
+                            SimpleType::String => {
+                                let ft = quote!{ #prefix.and_then(|e| e.as_string()) };
+                                if attributes.nillable {
+                                    quote!{ #ft.ok(),}
+                                } else {
+                                    quote!{ #ft?,}
+                                }
+                            },
+                            SimpleType::Float => {
+                                let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| e.as_string().map_err(savon::Error::from).and_then(|s| s.parse().map_err(savon::Error::from))) };
+                                if attributes.nillable {
+                                    quote!{ #ft.ok(),}
+                                } else {
+                                    quote!{ #ft?,}
+                                }
+                            },
+                            SimpleType::Int => {
+                                let ft = quote!{ #prefix.and_then(|e| e.as_long()) };
+                                if attributes.nillable {
+                                    quote!{ #ft.ok(),}
+                                } else {
+                                    quote!{ #ft?,}
+                                }
+                            },
+                            SimpleType::DateTime => {
+                                let ft = quote!{
+                                    #prefix.and_then(|e| e.as_string()).map_err(savon::Error::from)
+                                    .and_then(|s| s.parse::<chrono::DateTime<chrono::offset::Utc>>().map_err(savon::Error::from))
+                                };
+                                if attributes.nillable {
+                                    quote!{ #ft.ok(),}
+                                } else {
+                                    quote!{ #ft?,}
+                                }
+                            },
+                            SimpleType::Complex(s) => {
+                                let complex_type = Ident::new(&s, Span::call_site());
+
+                                match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
+                                    (Some(_), Some(_)) => {
+                                        let ft = quote! {
+                                            {
+                                                let mut v = vec![];
+                                                for elem in element.children.iter()
+                                                    .filter_map(|c| c.as_element()) {
+                                                        v.push(#complex_type::from_element(&elem)?);
+                                                    }
+                                                v
+                                            },
+                                        };
+
+                                        if attributes.nillable {
+                                            quote!{ #fname: Some(#ft) }
+                                        } else {
+                                            quote!{ #fname: #ft }
+                                        }
+                                    },
+                                    _ => {
+                                        let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| #complex_type::from_element(&e).map_err(savon::Error::from)) };
+                                        let ft = if attributes.nillable {
+                                            quote!{ #ft.ok(),}
+                                        } else {
+                                            quote!{ #ft?,}
+                                        };
+                                        ft
+                                    }
+                                }
+                            },
                         };
 
-                        let ft = if attributes.nillable {
+                        /*let ft = if attributes.nillable {
                           quote!{ #ft.ok(),}
                         } else {
                           quote!{ #ft?,}
-                        };
+                        };*/
 
                         ft
                     })
