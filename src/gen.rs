@@ -234,7 +234,9 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                 }
                             },
                             SimpleType::String => {
-                                let ft = quote!{ #prefix.and_then(|e| e.as_string()) };
+                                let ft = quote!{ #prefix.and_then(|e| e.get_text().map(|s| s.to_string())
+                                                     .ok_or(savon::rpser::xml::Error::Empty)
+                                                     ) };
                                 if attributes.nillable {
                                     quote!{ #ft.ok(),}
                                 } else {
@@ -242,7 +244,9 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                 }
                             },
                             SimpleType::Float => {
-                                let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| e.as_string().map_err(savon::Error::from).and_then(|s| s.parse().map_err(savon::Error::from))) };
+                                let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| e.get_text()
+                                                     .ok_or(savon::rpser::xml::Error::Empty)
+                                                     .and_then(|s| s.parse().map_err(savon::Error::from))) };
                                 if attributes.nillable {
                                     quote!{ #ft.ok(),}
                                 } else {
@@ -259,7 +263,9 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             },
                             SimpleType::DateTime => {
                                 let ft = quote!{
-                                    #prefix.and_then(|e| e.as_string()).map_err(savon::Error::from)
+                                    #prefix.and_then(|e| e.get_text()
+                                                     .ok_or(savon::rpser::xml::Error::Empty)
+                                                     ).map_err(savon::Error::from)
                                     .and_then(|s| s.parse::<chrono::DateTime<chrono::offset::Utc>>().map_err(savon::Error::from))
                                 };
                                 if attributes.nillable {

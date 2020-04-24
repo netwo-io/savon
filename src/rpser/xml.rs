@@ -22,6 +22,8 @@ pub enum Error {
     ParseIntError { name: String, inner: ParseIntError },
     /// Can't parse received element.
     ParseDateTimeError { name: String, inner: ParseError },
+    /// empty
+    Empty,
 }
 
 /// Helper trait for building `xmltree::Element`.
