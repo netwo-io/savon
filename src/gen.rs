@@ -37,15 +37,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             (None, None) => {
                 quote! {
                     async fn #op_name(&self, #input_name: #input_type) -> Result<(), savon::Error> {
-                        let req = hyper::http::request::Builder::new()
-                            .method("POST")
-                            .header("Content-Type", "text/xml-SOAP")
-                            .header("MessageType", "Call")
-                            .body(#input_name.as_xml())?;
-
-                        let response: hyper::http::Response<String> = self.client.request(req).await?;
-                        //let body = response.body().await?;
-                    }
+                        savon::http::one_way(&self.client, &self.base_url, &#input_name).await
+                            }
                 }
             },
             (None, Some(_)) => quote!{},
@@ -53,16 +46,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 let out_name = Ident::new(&out, Span::call_site());
 
                 quote! {
-                    async fn #op_name(&self, #input_name: #input_type) -> Result<#out_name, savon::Error> {
-                        let req = hyper::http::request::Builder::new()
-                            .method("POST")
-                            .header("Content-Type", "text/xml-SOAP")
-                            .header("MessageType", "Call")
-                            .body(#input_name.as_xml())?;
-
-                        let response: hyper::http::Response<String> = self.client.request(req).await?;
-                        let body = response.body().await?;
-                        Ok(#out_name::from_xml(body)?)
+                    async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, ()>, savon::Error> {
+                        savon::http::request_response(&self.client, &self.base_url, &#input_name).await
                     }
                 }
             },
@@ -72,7 +57,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
                 quote! {
                     async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, #err_name>, savon::Error> {
-                        let req = hyper::http::request::Builder::new()
+                        unimplemented!()
+                        /*let req = hyper::http::request::Builder::new()
                             .method("POST")
                             .header("Content-Type", "text/xml-SOAP")
                             .header("MessageType", "Call")
@@ -85,6 +71,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         } else {
                             Ok(#err_name::from_xml(body)?)
                         }
+                        */
                     }
                 }
             },
@@ -118,7 +105,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                     .collect::<Vec<_>>();
 
                 quote! {
-                    #[derive(Clone, Debug, Default)]
+                    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
                     pub struct #type_name {
                         #(#fields)*
                     }
@@ -137,7 +124,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             let iname = Ident::new(&message.part_element, Span::call_site());
 
             quote! {
-                #[derive(Clone, Debug, Default)]
+                #[derive(Clone, Debug, Default, Serialize, Deserialize)]
                 pub struct #mname(pub #iname);
             }
         })
@@ -146,11 +133,13 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
     let service_name = Ident::new(&wsdl.name, Span::call_site());
 
     let toks = quote! {
+        use serde::{Deserialize, Serialize};
+
         #(#types)*
 
         struct #service_name {
             base_url: String,
-            client: hyper::client::Client<hyper::client::HttpConnector, hyper::Body>,
+            client: reqwest::Client,
         }
         #(#messages)*
 
@@ -158,7 +147,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             pub fn new(base_url: String) -> Self {
                 #service_name {
                     base_url,
-                    client: hyper::client::Client::new(),
+                    client: reqwest::Client::new(),
                 }
             }
 
@@ -188,6 +177,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 .collect::<Vec<_>>();
 
             quote! {
+                #[derive(Clone, Debug, Default, Serialize, Deserialize)]
                 enum #op_error {
                     #(#faults)*
                 }

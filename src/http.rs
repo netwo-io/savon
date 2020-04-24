@@ -1,48 +1,34 @@
-//! HTTP helpers.
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_xml_rs::{from_str, to_string};
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
-pub use reqwest::Error as HttpError;
-pub use reqwest::StatusCode;
-use std::io::Read;
-use std::result;
+pub async fn one_way<Input: Serialize>(client: &Client, base_url: &str, input: &Input) -> Result<(), crate::Error> {
+    let response: String = client.post(base_url)
+        .header("Content-Type", "text/xml-SOAP")
+        .header("MessageType", "Call")
+        .body(to_string(input)?)
+        .send()
+        .await?.text().await?;
 
-/// Simplified HTTP response representation.
-#[derive(Debug)]
-pub struct Response {
-    pub status: StatusCode,
-    pub body: String,
+    Ok(())
 }
 
-/// Perform a GET request to specified URL.
-pub fn get(url: &str) -> Result<Response> {
-    let mut res = reqwest::get(url)?;
-    let mut body = String::new();
-    res.read_to_string(&mut body).unwrap();
-    let status = res.status();
+pub async fn request_response<'a, Input: Serialize, Output: Deserialize<'a>, Error: Deserialize<'a>>(client: &Client, base_url: &str, input: &Input)
+    -> Result<Result<Output, Error>, crate::Error> {
+    let response: String = client.post(base_url)
+        .header("Content-Type", "text/xml-SOAP")
+        .header("MessageType", "Call")
+        .body(to_string(input)?)
+        .send()
+        .await?.text().await?;
 
-    Ok(Response { status, body })
+    let res: Result<Output, _> = from_str(&response);
+
+    match res {
+        Ok(o) => Ok(Ok(o)),
+        Err(e) => match from_str(&response) {
+            Err(e) => Err(e.into()),
+            Ok(e) => Ok(Err(e)),
+        }
+    }
 }
-
-/// Perform a SOAP action to specified URL.
-pub fn soap_action(url: &str, action: &str, xml: &str) -> Result<Response> {
-    let soap_action = HeaderName::from_bytes(b"SOAPAction").unwrap();
-    let soap_value = HeaderValue::from_str(action).unwrap();
-    let mut hmap = HeaderMap::new();
-    hmap.insert(CONTENT_TYPE, "text/xml; charset=utf-8".parse().unwrap());
-    hmap.insert(soap_action, soap_value);
-
-    let client = reqwest::Client::new();
-    let mut response = client
-        .post(url)
-        .headers(hmap)
-        .body(xml.to_string())
-        .send()?;
-
-    let mut body = String::new();
-    response.read_to_string(&mut body).unwrap();
-    let status = response.status();
-
-    Ok(Response { status, body })
-}
-
-pub type Result<T> = result::Result<T, HttpError>;

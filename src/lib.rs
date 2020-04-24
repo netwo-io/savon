@@ -7,7 +7,7 @@ extern crate quote;
 
 pub mod gen;
 //mod rpser;
-//mod http;
 pub mod wsdl;
-
-pub enum Error {}
+pub mod http;
+mod error;
+pub use error::*;
