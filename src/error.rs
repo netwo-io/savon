@@ -4,6 +4,7 @@ pub enum Error {
   Serde(serde_xml_rs::Error),
   Reqwest(reqwest::Error),
   Rpser(crate::rpser::xml::Error),
+  Num(std::num::ParseFloatError),
 }
 
 impl From<crate::wsdl::WsdlError> for Error {
@@ -27,5 +28,11 @@ impl From<serde_xml_rs::Error> for Error {
 impl From<reqwest::Error> for Error {
   fn from(e: reqwest::Error) -> Self {
       Error::Reqwest(e)
+  }
+}
+
+impl From<std::num::ParseFloatError> for Error {
+  fn from(e: std::num::ParseFloatError) -> Self {
+      Error::Num(e)
   }
 }

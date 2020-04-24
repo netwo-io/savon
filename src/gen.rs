@@ -158,25 +158,19 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                     .iter()
                     .map(|(field_name, (attributes, field_type))| {
                         let fname = Ident::new(&field_name.to_snake(), Span::call_site());
-                        //FIXME: handle more complex types
-                        /*let ft = match field_type {
-                            SimpleType::Boolean => Ident::new("bool", Span::call_site()),
-                            SimpleType::String => Ident::new("String", Span::call_site()),
-                            SimpleType::Float => Ident::new("f64", Span::call_site()),
-                            SimpleType::Int => Ident::new("i64", Span::call_site()),
-                            SimpleType::DateTime => Ident::new("String", Span::call_site()),
-                            SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
-                        };*/
                         let ftype = Literal::string(field_name);
+
+                        let error = Literal::string(&format!("could not parse {}::{} as {:?}",
+                                                             name, field_name, field_type));
 
                         let prefix = quote!{ #fname: element.get_at_path(&[#ftype]) };
                         match field_type {
                             SimpleType::Boolean => quote!{ #prefix.and_then(|e| e.as_boolean())?, },
                             SimpleType::String => quote!{ #prefix.and_then(|e| e.as_string())?, },
-                            SimpleType::Float => quote!{ #fname: unimplemented!(), },
+                            SimpleType::Float => quote!{ #prefix.and_then(|e| e.as_string())?.parse()? },
                             SimpleType::Int => quote!{ #prefix.and_then(|e| e.as_long())?, },
-                            SimpleType::DateTime => quote!{ #fname: unimplemented!(), },
-                            SimpleType::Complex(s) => quote!{ #fname: unimplemented!(), },
+                            SimpleType::DateTime => quote!{ #fname: unimplemented!(#error), },
+                            SimpleType::Complex(s) => quote!{ #fname: unimplemented!(#error), },
                         }
                     })
                     .collect::<Vec<_>>();
