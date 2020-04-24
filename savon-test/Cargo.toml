@@ -9,13 +9,12 @@ build = "build.rs"
 
 [dependencies]
 savon = { path = ".."}
-reqwest = "*"
-serde = { version = "*", features = ["derive"] }
-tokio = { version = "*", features = ["macros"] }
-log = "*"
-pretty_env_logger = "*"
-xmltree = "*"
-chrono = "*"
+reqwest = "0.10"
+tokio = { version = "0.2", features = ["macros"] }
+log = "0.4"
+pretty_env_logger = "0.4"
+xmltree = "0.10"
+chrono = "0.4"
 
 [build-dependencies]
 savon = { path = ".."}

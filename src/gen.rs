@@ -246,6 +246,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             SimpleType::Float => {
                                 let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| e.get_text()
                                                      .ok_or(savon::rpser::xml::Error::Empty)
+                                                     .map_err(savon::Error::from)
                                                      .and_then(|s| s.parse().map_err(savon::Error::from))) };
                                 if attributes.nillable {
                                     quote!{ #ft.ok(),}
@@ -330,7 +331,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 };
 
                 quote! {
-                    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+                    #[derive(Clone, Debug, Default)]
                     pub struct #type_name {
                         #(#fields)*
                     }
@@ -353,7 +354,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             let iname = Ident::new(&message.part_element, Span::call_site());
 
             quote! {
-                #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+                #[derive(Clone, Debug, Default)]
                 pub struct #mname(pub #iname);
 
                 impl savon::gen::ToElements for #mname {
@@ -374,7 +375,6 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
     let service_name = Ident::new(&wsdl.name, Span::call_site());
 
     let toks = quote! {
-        use serde::{Deserialize, Serialize};
         use xmltree;
         use savon::rpser::xml::*;
 
@@ -420,7 +420,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                 .collect::<Vec<_>>();
 
             quote! {
-                #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+                #[derive(Clone, Debug, Default)]
                 pub enum #op_error {
                     #(#faults)*
                 }

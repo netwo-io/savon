@@ -19,8 +19,6 @@ quote = "1.0"
 proc-macro2 = "1.0"
 case = "^1.0"
 reqwest = "0.10"
-serde = "1.0"
-serde-xml-rs = "0.4"
 
 [workspace]
 members = [ "savon-test" ]

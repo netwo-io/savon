@@ -10,10 +10,10 @@ in `Cargo.toml`:
 
 ```toml
 [dependencies]
-savon = "*"
-reqwest = "*"
-xmltree = "*"
-chrono = "*"
+savon = "0.1"
+reqwest = "0.10"
+xmltree = "0.10"
+chrono = "0.4"
 ```
 
 in `build.rs`:
