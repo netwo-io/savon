@@ -48,5 +48,5 @@ pub async fn request_response<Input: ToElements, Output: Debug + FromElement, Er
     let o = Output::from_element(&r.body);
     trace!("output: {:#?}", o);
 
-    o.map(|val| Ok(val))
+    o.map(Ok)
 }

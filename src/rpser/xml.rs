@@ -116,7 +116,7 @@ impl BuildElement for Element {
         Element {
             name: self.name.clone(),
             attributes: self.attributes.clone(),
-            children: self.children.iter().map(|child| child.clone()).collect(),
+            children: self.children.to_vec(),
             //text: self.text.clone(),
             namespace: self.namespace.clone(),
             namespaces: self.namespaces.clone(),
@@ -201,11 +201,11 @@ impl BuildElement for Element {
             for child in self.children.iter().filter_map(|c| c.as_element()) {
                 if child.name == path[0] {
                     return match child.clone().descend(&path[1..]) {
-                        Ok(element) => Ok(element.clone()),
+                        Ok(element) => Ok(element),
                         Err(Error::NotFoundAtPath {
                             path: error_path,
                         }) => {
-                            let mut err = error_path.clone();
+                            let mut err = error_path;
                             err.insert(0, path[0].into());
                             Err(Error::NotFoundAtPath { path: err })
                         }

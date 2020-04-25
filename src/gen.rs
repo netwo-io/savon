@@ -1,9 +1,7 @@
 use crate::wsdl::{parse, SimpleType, Type, Wsdl};
 use case::CaseExt;
-use proc_macro2::{Ident, Literal, Spacing, Span, TokenStream, TokenTree};
-use quote::{ToTokens, TokenStreamExt};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use std::{fs::File, io::Write};
-use chrono::DateTime;
 
 pub trait ToElements {
     fn to_elements(&self) -> Vec<xmltree::Element>;
@@ -46,12 +44,12 @@ impl From<std::io::Error> for GenError {
 
 pub fn gen_write(path: &str, out: &str) -> Result<(), ()> {
     let out_path = format!("{}/example.rs", out);
-    let mut v = std::fs::read(path).unwrap();
+    let v = std::fs::read(path).unwrap();
     let mut output = File::create(out_path).unwrap();
     let wsdl = parse(&v[..]).unwrap();
     let generated = gen(&wsdl).unwrap();
     output.write_all(generated.as_bytes()).unwrap();
-    output.flush();
+    output.flush().unwrap();
 
     Ok(())
 }
@@ -137,9 +135,10 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                           (Some(_), Some(_)) => quote! { Vec<#ft> },
                           _ => quote! { #ft }
                         };
-                        let ft = match attributes.nillable {
-                          true => quote! { Option<#ft> },
-                          _ => ft
+                        let ft = if attributes.nillable {
+                            quote! { Option<#ft> }
+                        } else {
+                            ft
                         };
 
                         quote! {
@@ -165,7 +164,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         let ftype = Literal::string(field_name);
                         let prefix = quote! { xmltree::Element::node(#ftype) };
 
-                        let f = match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
+                        match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
                           (Some(_), Some(_)) => if attributes.nillable {
                               quote! {
                                   self.#fname.as_ref().map(|v| v.iter().map(|i| {
@@ -181,17 +180,15 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                           },
                           _ => {
                               match field_type {
-                                  SimpleType::Complex(s) => quote!{ vec![#prefix.with_children(self.#fname.to_elements())]},
+                                  SimpleType::Complex(_s) => quote!{ vec![#prefix.with_children(self.#fname.to_elements())]},
                                   _ => quote!{ vec![#prefix.with_text(self.#fname.to_string())] },
                               }
 
                           }
-                        };
-                        f
+                        }
                     })
                     .collect::<Vec<_>>();
 
-                let ns = Literal::string(&format!("ns:{}", name));
                 let serialize_impl = if fields_serialize_impl.is_empty() {
                     quote! {
                         impl savon::gen::ToElements for #type_name {
@@ -206,7 +203,6 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         impl savon::gen::ToElements for #type_name {
                             fn to_elements(&self) -> Vec<xmltree::Element> {
                                 vec![#(#fields_serialize_impl),*].drain(..).flatten().collect()
-                                //#(#fields_serialize_impl)*
                             }
                         }
                     }
@@ -219,12 +215,9 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                         let fname = Ident::new(&field_name.to_snake(), Span::call_site());
                         let ftype = Literal::string(field_name);
 
-                        let error = Literal::string(&format!("could not parse {}::{} as {:?}",
-                                                             name, field_name, field_type));
-
                         let prefix = quote!{ #fname: element.get_at_path(&[#ftype]) };
 
-                        let ft = match field_type {
+                        match field_type {
                             SimpleType::Boolean => {
                                 let ft = quote!{ #prefix.and_then(|e| e.as_boolean()) };
                                 if attributes.nillable {
@@ -300,24 +293,15 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                     },
                                     _ => {
                                         let ft = quote!{ #prefix.map_err(savon::Error::from).and_then(|e| #complex_type::from_element(&e).map_err(savon::Error::from)) };
-                                        let ft = if attributes.nillable {
+                                        if attributes.nillable {
                                             quote!{ #ft.ok(),}
                                         } else {
                                             quote!{ #ft?,}
-                                        };
-                                        ft
+                                        }
                                     }
                                 }
                             },
-                        };
-
-                        /*let ft = if attributes.nillable {
-                          quote!{ #ft.ok(),}
-                        } else {
-                          quote!{ #ft?,}
-                        };*/
-
-                        ft
+                        }
                     })
                     .collect::<Vec<_>>();
 
@@ -389,9 +373,13 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
 
         impl #service_name {
             pub fn new(base_url: String) -> Self {
+                Self::with_client(base_url, savon::internal::reqwest::Client::new())
+            }
+
+            pub fn with_client(base_url: String, client: savon::internal::reqwest::Client) -> Self {
                 #service_name {
                     base_url,
-                    client: savon::internal::reqwest::Client::new(),
+                    client,
                 }
             }
 

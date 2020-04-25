@@ -177,7 +177,7 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
                 };
                 //println!("field {:?} -> {:?}", field_name, field_type);
                 //
-                let mut type_attributes = TypeAttribute {
+                let type_attributes = TypeAttribute {
                     nillable,
                     min_occurs,
                     max_occurs,
@@ -275,7 +275,9 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
                     if faults.is_none() {
                         faults = Some(Vec::new());
                     }
-                    faults.as_mut().map(|v| v.push(message.to_string()));
+                    if let Some(v) = faults.as_mut() {
+                        v.push(message.to_string());
+                    }
                 }
                 _ => return Err(WsdlError::ElementNotFound("operation member")),
             }
