@@ -382,6 +382,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
         }
         #(#messages)*
 
+        #[allow(dead_code)]
         impl #service_name {
             pub fn new(base_url: String) -> Self {
                 Self::with_client(base_url, savon::internal::reqwest::Client::new())
