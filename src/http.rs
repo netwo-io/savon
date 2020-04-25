@@ -29,7 +29,7 @@ pub async fn one_way<Input: ToElements>(
         .text()
         .await?;
 
-    println!("received: {}", response);
+    trace!("received: {}", response);
     Ok(())
 }
 

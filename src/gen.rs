@@ -56,7 +56,6 @@ pub fn gen_write(path: &str, out: &str) -> Result<(), ()> {
 }
 
 pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
-    println!("wsdl:{:#?}", wsdl);
     let target_namespace = Literal::string(&wsdl.target_namespace);
 
     let operations = wsdl.operations.iter().map(|(name, operation)| {

@@ -91,8 +91,7 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     let mut operations = HashMap::new();
 
     let elements = Element::parse(bytes)?;
-    println!("elements: {:#?}", elements);
-    println!("line: {}", line!());
+    trace!("elements: {:#?}", elements);
     let target_namespace = elements
         .attributes
         .get("targetNamespace")
@@ -107,17 +106,13 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         .filter_map(|c| c.as_element())
         .next()
         .ok_or(WsdlError::Empty)?;
-    //println!("types: {:#?}", types_el);
-    println!("line: {}", line!());
 
     for elem in types_el.children.iter().filter_map(|c| c.as_element()) {
-        println!("type: {:#?}", elem);
+        trace!("type: {:#?}", elem);
         let name = elem
             .attributes
             .get("name")
             .ok_or(WsdlError::AttributeNotFound("name"))?;
-        //println!("name: {:?}", name);
-        println!("line: {}", line!());
 
         // sometimes we have <element name="TypeName"><complexType>...</complexType></element>,
         // sometimes we have <complexType name="TypeName">...</complexType>
@@ -135,7 +130,6 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         };
 
         if child.name == "complexType" {
-            println!("line: {}", line!());
             let mut fields = HashMap::new();
             for field in child
                 .children
@@ -147,7 +141,6 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
                 .iter()
                 .filter_map(|c| c.as_element())
             {
-                println!("line: {}", line!());
                 let field_name = field
                     .attributes
                     .get("name")
@@ -176,8 +169,7 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
                         n.parse().expect("occurence should be a number"),
                     )),
                 };
-                //println!("field {:?} -> {:?}", field_name, field_type);
-                //
+                trace!("field {:?} -> {:?}", field_name, field_type);
                 let type_attributes = TypeAttribute {
                     nillable,
                     min_occurs,
@@ -197,20 +189,18 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
 
             types.insert(name.to_string(), Type::Complex(ComplexType { fields }));
         } else {
-            println!("child {:#?}", child);
+            trace!("child {:#?}", child);
             unimplemented!("not a complex type");
         }
     }
 
-    println!("line: {}", line!());
     for message in elements
         .children
         .iter()
         .filter_map(|c| c.as_element())
         .filter(|c| c.name == "message")
     {
-        println!("line: {}", line!());
-        println!("message: {:#?}", message);
+        trace!("message: {:#?}", message);
         let name = message
             .attributes
             .get("name")
@@ -221,7 +211,6 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
             .filter_map(|c| c.as_element())
             .next()
             .unwrap();
-        println!("line: {}", line!());
         //FIXME: namespace
         let part_name = c
             .attributes
@@ -244,13 +233,11 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         );
     }
 
-    println!("line: {}", line!());
     let port_type_el = elements
         .get_child("portType")
         .ok_or(WsdlError::ElementNotFound("portType"))?;
 
     for operation in port_type_el.children.iter().filter_map(|c| c.as_element()) {
-        println!("line: {}", line!());
         let operation_name = operation
             .attributes
             .get("name")
@@ -265,7 +252,6 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
             .filter_map(|c| c.as_element())
             .filter(|c| c.attributes.get("message").is_some())
         {
-            println!("line: {}", line!());
             let message = split_namespace(
                 child
                     .attributes
@@ -299,7 +285,6 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         );
     }
 
-    println!("line: {}", line!());
     //FIXME: ignoring bindings for now
     //FIXME: ignoring service for now
     let service_name = elements
@@ -308,12 +293,11 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         .attributes
         .get("name")
         .ok_or(WsdlError::AttributeNotFound("name"))?;
-    println!("line: {}", line!());
 
-    println!("service name: {}", service_name);
-    println!("parsed types: {:#?}", types);
-    println!("parsed messages: {:#?}", messages);
-    println!("parsed operations: {:#?}", operations);
+    debug!("service name: {}", service_name);
+    debug!("parsed types: {:#?}", types);
+    debug!("parsed messages: {:#?}", messages);
+    debug!("parsed operations: {:#?}", operations);
 
     Ok(Wsdl {
         name: service_name.to_string(),
@@ -335,6 +319,5 @@ mod tests {
         let res = parse(EXAMPLE_WSDL);
         println!("res: {:?}", res);
         res.unwrap();
-        panic!();
     }
 }
