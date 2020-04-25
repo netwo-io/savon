@@ -111,13 +111,14 @@ If you use the following WSDL file as input:
 It will generate this code:
 
 ```rust
+use savon::internal::xmltree;
 use savon::rpser::xml::*;
-use serde::{Deserialize, Serialize};
-use xmltree;
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Default)]
 pub struct TradePriceRequest {
     pub ticker_symbol: String,
 }
+
 impl savon::gen::ToElements for TradePriceRequest {
     fn to_elements(&self) -> Vec<xmltree::Element> {
         vec![vec![
@@ -128,6 +129,7 @@ impl savon::gen::ToElements for TradePriceRequest {
         .collect()
     }
 }
+
 impl savon::gen::FromElement for TradePriceRequest {
     fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
         Ok(TradePriceRequest {
@@ -139,10 +141,12 @@ impl savon::gen::FromElement for TradePriceRequest {
         })
     }
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Default)]
 pub struct TradePrice {
     pub price: f64,
 }
+
 impl savon::gen::ToElements for TradePrice {
     fn to_elements(&self) -> Vec<xmltree::Element> {
         vec![vec![
@@ -153,6 +157,7 @@ impl savon::gen::ToElements for TradePrice {
         .collect()
     }
 }
+
 impl savon::gen::FromElement for TradePrice {
     fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
         Ok(TradePrice {
@@ -168,41 +173,52 @@ impl savon::gen::FromElement for TradePrice {
         })
     }
 }
+
 pub struct StockQuoteService {
     pub base_url: String,
-    pub client: reqwest::Client,
+    pub client: savon::internal::reqwest::Client,
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct GetLastTradePriceInput(pub TradePriceRequest);
-impl savon::gen::ToElements for GetLastTradePriceInput {
-    fn to_elements(&self) -> Vec<xmltree::Element> {
-        self.0.to_elements()
-    }
-}
-impl savon::gen::FromElement for GetLastTradePriceInput {
-    fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
-        TradePriceRequest::from_element(element).map(GetLastTradePriceInput)
-    }
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Default)]
 pub struct GetLastTradePriceOutput(pub TradePrice);
+
 impl savon::gen::ToElements for GetLastTradePriceOutput {
     fn to_elements(&self) -> Vec<xmltree::Element> {
         self.0.to_elements()
     }
 }
+
 impl savon::gen::FromElement for GetLastTradePriceOutput {
     fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
         TradePrice::from_element(element).map(GetLastTradePriceOutput)
     }
 }
+
+#[derive(Clone, Debug, Default)]
+pub struct GetLastTradePriceInput(pub TradePriceRequest);
+
+impl savon::gen::ToElements for GetLastTradePriceInput {
+    fn to_elements(&self) -> Vec<xmltree::Element> {
+        self.0.to_elements()
+    }
+}
+
+impl savon::gen::FromElement for GetLastTradePriceInput {
+    fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
+        TradePriceRequest::from_element(element).map(GetLastTradePriceInput)
+    }
+}
+
+#[allow(dead_code)]
 impl StockQuoteService {
     pub fn new(base_url: String) -> Self {
-        StockQuoteService {
-            base_url,
-            client: reqwest::Client::new(),
-        }
+        Self::with_client(base_url, savon::internal::reqwest::Client::new())
     }
+
+    pub fn with_client(base_url: String, client: savon::internal::reqwest::Client) -> Self {
+        StockQuoteService { base_url, client }
+    }
+
     pub async fn get_last_trade_price(
         &self,
         get_last_trade_price_input: GetLastTradePriceInput,
