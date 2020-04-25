@@ -5,6 +5,15 @@ extern crate proc_macro2;
 #[macro_use]
 extern crate quote;
 
+// reexport dependencies so they can be used from the generated code
+// without requiring more imports
+#[doc(hidden)]
+pub mod internal {
+    pub use xmltree;
+    pub use reqwest;
+    pub use chrono;
+}
+
 pub mod gen;
 pub mod rpser;
 pub mod wsdl;

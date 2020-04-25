@@ -267,7 +267,8 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                     #prefix.and_then(|e| e.get_text()
                                                      .ok_or(savon::rpser::xml::Error::Empty)
                                                      ).map_err(savon::Error::from)
-                                    .and_then(|s| s.parse::<chrono::DateTime<chrono::offset::Utc>>().map_err(savon::Error::from))
+                                    .and_then(|s|
+                                              s.parse::<savon::internal::chrono::DateTime<savon::internal::chrono::offset::Utc>>().map_err(savon::Error::from))
                                 };
                                 if attributes.nillable {
                                     quote!{ #ft.ok(),}
@@ -375,14 +376,14 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
     let service_name = Ident::new(&wsdl.name, Span::call_site());
 
     let toks = quote! {
-        use xmltree;
+        use savon::internal::xmltree;
         use savon::rpser::xml::*;
 
         #(#types)*
 
         pub struct #service_name {
             pub base_url: String,
-            pub client: reqwest::Client,
+            pub client: savon::internal::reqwest::Client,
         }
         #(#messages)*
 
@@ -390,7 +391,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             pub fn new(base_url: String) -> Self {
                 #service_name {
                     base_url,
-                    client: reqwest::Client::new(),
+                    client: savon::internal::reqwest::Client::new(),
                 }
             }
 
