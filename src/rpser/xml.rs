@@ -173,7 +173,8 @@ impl BuildElement for Element {
     where
         I: IntoIterator<Item = Self>,
     {
-        self.children.extend(children.into_iter().map(xmltree::XMLNode::Element));
+        self.children
+            .extend(children.into_iter().map(xmltree::XMLNode::Element));
         self
     }
 
@@ -182,7 +183,8 @@ impl BuildElement for Element {
         I: Iterator<Item = &'r Self>,
     {
         for child in children {
-            self.children.push(xmltree::XMLNode::Element(child.cloned()));
+            self.children
+                .push(xmltree::XMLNode::Element(child.cloned()));
         }
         self
     }
@@ -202,9 +204,7 @@ impl BuildElement for Element {
                 if child.name == path[0] {
                     return match child.clone().descend(&path[1..]) {
                         Ok(element) => Ok(element),
-                        Err(Error::NotFoundAtPath {
-                            path: error_path,
-                        }) => {
+                        Err(Error::NotFoundAtPath { path: error_path }) => {
                             let mut err = error_path;
                             err.insert(0, path[0].into());
                             Err(Error::NotFoundAtPath { path: err })
@@ -301,14 +301,16 @@ impl BuildElement for Element {
 }
 
 fn get_typed_string(element: &Element, value_type: &str) -> Result<String, Error> {
-    Ok(match (element.attributes.get("type"), &element.get_text()) {
-        (Some(value), &Some(ref text)) if value.ends_with(value_type) => text.to_string(),
-        (other_type, _) => {
-            return Err(Error::ExpectedElementWithType {
-                name: element.name.clone(),
-                expected_type: ["*:", value_type].concat(),
-                given: other_type.cloned(),
-            });
-        }
-    })
+    Ok(
+        match (element.attributes.get("type"), &element.get_text()) {
+            (Some(value), &Some(ref text)) if value.ends_with(value_type) => text.to_string(),
+            (other_type, _) => {
+                return Err(Error::ExpectedElementWithType {
+                    name: element.name.clone(),
+                    expected_type: ["*:", value_type].concat(),
+                    given: other_type.cloned(),
+                });
+            }
+        },
+    )
 }

@@ -71,11 +71,15 @@ impl Response {
 
         if element.name == "Fault" {
             return Err(RpcError::Fault {
-                fault_code: element.get_at_path(&["faultcode"])?
-                    .get_text().map(|t| t.to_string())
+                fault_code: element
+                    .get_at_path(&["faultcode"])?
+                    .get_text()
+                    .map(|t| t.to_string())
                     .unwrap_or_default(),
-                fault_string: element.get_at_path(&["faultstring"])?
-                    .get_text().map(|t| t.to_string())
+                fault_string: element
+                    .get_at_path(&["faultstring"])?
+                    .get_text()
+                    .map(|t| t.to_string())
                     .unwrap_or_default(),
                 fault_detail: Box::new(element.get_at_path(&["detail"])?),
             });

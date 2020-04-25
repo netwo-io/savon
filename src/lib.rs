@@ -9,14 +9,14 @@ extern crate quote;
 // without requiring more imports
 #[doc(hidden)]
 pub mod internal {
-    pub use xmltree;
-    pub use reqwest;
     pub use chrono;
+    pub use reqwest;
+    pub use xmltree;
 }
 
+mod error;
 pub mod gen;
+pub mod http;
 pub mod rpser;
 pub mod wsdl;
-pub mod http;
-mod error;
 pub use error::*;

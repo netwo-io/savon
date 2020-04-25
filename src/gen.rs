@@ -9,7 +9,8 @@ pub trait ToElements {
 
 pub trait FromElement {
     fn from_element(element: &xmltree::Element) -> Result<Self, crate::Error>
-        where Self: Sized;
+    where
+        Self: Sized;
 }
 
 impl<T: ToElements> ToElements for Option<T> {

@@ -94,9 +94,10 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
     println!("elements: {:#?}", elements);
     println!("line: {}", line!());
     let target_namespace = elements
-            .attributes
-            .get("targetNamespace")
-            .ok_or(WsdlError::AttributeNotFound("targetNamespace"))?.to_string();
+        .attributes
+        .get("targetNamespace")
+        .ok_or(WsdlError::AttributeNotFound("targetNamespace"))?
+        .to_string();
 
     let types_el = elements
         .get_child("types")
@@ -258,8 +259,12 @@ pub fn parse(bytes: &[u8]) -> Result<Wsdl, WsdlError> {
         let mut input = None;
         let mut output = None;
         let mut faults = None;
-        for child in operation.children.iter().filter_map(|c| c.as_element())
-            .filter(|c| c.attributes.get("message").is_some()) {
+        for child in operation
+            .children
+            .iter()
+            .filter_map(|c| c.as_element())
+            .filter(|c| c.attributes.get("message").is_some())
+        {
             println!("line: {}", line!());
             let message = split_namespace(
                 child
