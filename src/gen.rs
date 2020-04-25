@@ -305,15 +305,26 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                     })
                     .collect::<Vec<_>>();
 
-                let deserialize_impl = quote! {
-                    impl savon::gen::FromElement for #type_name {
-                        fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
-                            Ok(#type_name {
-                                #(#fields_deserialize_impl)*
-                            })
+                    let deserialize_impl = if fields_deserialize_impl.is_empty() {
+                        quote! {
+                            impl savon::gen::FromElement for #type_name {
+                                fn from_element(_element: &xmltree::Element) -> Result<Self, savon::Error> {
+                                    Ok(#type_name {
+                                    })
+                                }
+                            }
                         }
-                    }
-                };
+                    } else {
+                        quote! {
+                            impl savon::gen::FromElement for #type_name {
+                                fn from_element(element: &xmltree::Element) -> Result<Self, savon::Error> {
+                                    Ok(#type_name {
+                                        #(#fields_deserialize_impl)*
+                                    })
+                                }
+                            }
+                        }
+                    };
 
                 quote! {
                     #[derive(Clone, Debug, Default)]
