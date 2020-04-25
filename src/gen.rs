@@ -61,7 +61,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
     let operations = wsdl.operations.iter().map(|(name, operation)| {
         let op_name = Ident::new(&name.to_snake(), Span::call_site());
         let input_name = Ident::new(&operation.input.as_ref().unwrap().to_snake(), Span::call_site());
-        let input_type = Ident::new(operation.input.as_ref().unwrap(), Span::call_site());
+        let input_type = Ident::new(&operation.input.as_ref().unwrap().to_camel(), Span::call_site());
 
         let op_str = Literal::string(&name);
 
@@ -85,7 +85,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
             },
             (Some(out), Some(_)) => {
                 let out_name = Ident::new(&out, Span::call_site());
-                let err_name = Ident::new(&format!("{}Error", name), Span::call_site());
+                let err_name = Ident::new(&format!("{}Error", name.to_camel()), Span::call_site());
 
                 quote! {
                     pub async fn #op_name(&self, #input_name: #input_type) -> Result<Result<#out_name, #err_name>, savon::Error> {
@@ -115,7 +115,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
         .iter()
         .map(|(name, t)| {
             if let Type::Complex(c) = t {
-                let type_name = Ident::new(&name, Span::call_site());
+                let type_name = Ident::new(&name.to_camel(), Span::call_site());
 
                 let fields = c
                     .fields
@@ -128,7 +128,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                             SimpleType::Float => Ident::new("f64", Span::call_site()),
                             SimpleType::Int => Ident::new("i64", Span::call_site()),
                             SimpleType::DateTime => Ident::new("chrono::DateTime", Span::call_site()),
-                            SimpleType::Complex(s) => Ident::new(&s, Span::call_site()),
+                            SimpleType::Complex(s) => Ident::new(&s.to_camel(), Span::call_site()),
                         };
 
                         let ft = match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
@@ -270,7 +270,7 @@ pub fn gen(wsdl: &Wsdl) -> Result<String, GenError> {
                                 }
                             },
                             SimpleType::Complex(s) => {
-                                let complex_type = Ident::new(&s, Span::call_site());
+                                let complex_type = Ident::new(&s.to_camel(), Span::call_site());
 
                                 match (attributes.min_occurs.as_ref(), attributes.max_occurs.as_ref()) {
                                     (Some(_), Some(_)) => {
