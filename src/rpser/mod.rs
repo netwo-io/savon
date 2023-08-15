@@ -131,7 +131,7 @@ pub type Result<T> = result::Result<T, RpcError>;
 #[cfg(test)]
 mod test {
     use super::*;
-    use rpser::xml::BuildElement;
+    use crate::rpser::xml::BuildElement;
 
     #[test]
     fn can_deal_with_fault() {
@@ -183,7 +183,7 @@ mod test {
                 assert_eq!(response.body.name, "loginResponse");
                 let return_element = response.body.descend_first().unwrap();
                 assert_eq!(return_element.name, "loginReturn");
-                assert_eq!(return_element.text, Some("a3a8ecc6d5".into()));
+                assert_eq!(return_element.get_text(), Some("a3a8ecc6d5".into()));
             }
             other => panic!(
                 "expected to receive fault in this test, received {:?}",
